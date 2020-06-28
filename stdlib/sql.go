@@ -410,15 +410,42 @@ type Rows struct {
 	rows         pgx.Rows
 	skipNext     bool
 	skipNextMore bool
+
+	columnNames cachedColumnNames
+}
+
+type cachedColumnNames struct {
+	firstAddr *pgproto3.FieldDescription
+	names     []string
+}
+
+func (c *cachedColumnNames) update(fields []pgproto3.FieldDescription) {
+	if len(fields) == 0 {
+		if len(c.names) != 0 {
+			*c = cachedColumnNames{}
+		}
+		return
+	}
+
+	// Assume that the slices are identical if their length and address match.
+	// This only works if the field slices are treated as immutable and their
+	// backing memory not reused.
+	if len(fields) == len(c.names) && &fields[0] == c.firstAddr {
+		return
+	}
+
+	names := make([]string, len(fields))
+	for i, fd := range fields {
+		names[i] = string(fd.Name)
+	}
+
+	c.firstAddr = &fields[0]
+	c.names = names
 }
 
 func (r *Rows) Columns() []string {
-	fieldDescriptions := r.rows.FieldDescriptions()
-	names := make([]string, 0, len(fieldDescriptions))
-	for _, fd := range fieldDescriptions {
-		names = append(names, string(fd.Name))
-	}
-	return names
+	r.columnNames.update(r.rows.FieldDescriptions())
+	return r.columnNames.names
 }
 
 // ColumnTypeDatabaseTypeName returns the database system type name. If the name is unknown the OID is returned.
