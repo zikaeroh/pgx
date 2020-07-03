@@ -66,6 +66,7 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
+	"github.com/josharian/intern"
 )
 
 // Only intrinsic types should be binary format with database/sql.
@@ -422,7 +423,7 @@ func (r *Rows) Columns() []string {
 		fields := r.rows.FieldDescriptions()
 		r.columnNames = make([]string, len(fields))
 		for i, fd := range fields {
-			r.columnNames[i] = string(fd.Name)
+			r.columnNames[i] = intern.Bytes(fd.Name)
 		}
 	}
 
